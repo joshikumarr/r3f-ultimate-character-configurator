@@ -3,15 +3,23 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gateway": "node server/gateway.mjs",
+    "mcp": "node mcp/server.mjs",
+    "demo": "concurrently -k -n gateway,web \"node server/gateway.mjs\" \"vite\"",
+    "electron": "electron .",
+    "pet:dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "pet": "vite build && electron ."
   },
   "dependencies": {
     "@gltf-transform/core": "^4.0.10",
     "@gltf-transform/extensions": "^4.0.10",
     "@gltf-transform/functions": "^4.0.10",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "@react-spring/three": "9.6.1",
     "@react-three/drei": "^9.112.0",
     "@react-three/eslint-plugin": "^0.1.1",
@@ -24,6 +32,8 @@
     "react-dom": "^18.3.1",
     "three": "^0.168.0",
     "three-stdlib": "^2.33.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8",
     "zustand": "^5.0.0-rc.2"
   },
   "devDependencies": {
@@ -31,9 +41,13 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
     "globals": "^15.9.0",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.11",
-    "vite": "^5.4.1"
+    "vite": "^5.4.1",
+    "wait-on": "^8.0.1"
   }
 }
