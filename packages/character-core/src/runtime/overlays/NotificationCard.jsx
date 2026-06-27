@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useReactionStore } from "../reactions/reactionStore";
+import { useCharacterStore } from "../../actions/characterStore";
 
 const SOURCE_ICON = {
   github: "🐙",
@@ -13,8 +13,8 @@ const SOURCE_ICON = {
 // The notification "card" the character reacts toward — a toast in the top-right
 // that mirrors the live event. Auto-hides shortly after the reaction ends.
 export const NotificationCard = () => {
-  const current = useReactionStore((s) => s.current);
-  const playing = useReactionStore((s) => s.playing);
+  const current = useCharacterStore((s) => s.current);
+  const playing = useCharacterStore((s) => s.playing);
   const [shown, setShown] = useState(null);
 
   useEffect(() => {

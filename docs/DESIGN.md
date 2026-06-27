@@ -6,30 +6,66 @@ boss and an angry bird gets launched at the toast; you finish a task and confett
 goes off. External apps (GitHub Actions, Slack, email rules, any MCP client)
 drive it through a single notification endpoint.
 
-Built on top of the R3F Ultimate Character Configurator — it reuses that rig and
-its `Poses.glb` clip library.
+The character is a **standalone, event-driven runtime** — deliberately separate
+from the web infra. A lightweight Electron shell loads it and wires the OS side
+(tray, taskbar, notifications). It reuses the configurator's rig (`Armature.glb`)
+and its `Poses.glb` clip library, but depends on neither the configurator nor
+PocketBase.
 
 ---
 
-## Architecture
+## Monorepo layout
 
 ```
- ┌──────────────┐   POST /notify   ┌───────────────┐   WS broadcast   ┌──────────────┐   IPC      ┌────────────┐
- │ GitHub Action │ ───────────────▶ │               │ ───────────────▶ │ Electron main │ ────────▶ │  renderer   │
- │ Slack / email │                  │   Gateway     │                  │ (WS client +  │  preload  │ (React/R3F) │
- │ MCP client    │ ──(MCP tool)──▶  │  HTTP + WS    │                  │  pet window)  │           │  character  │
- └──────────────┘   via MCP server  └───────────────┘                  └──────────────┘           └────────────┘
+packages/character-core/      ← standalone character: bus + actions + runtime (no web infra)
+  src/events/    schema.js, bus.js          pure JS — safe to import from Node
+  src/actions/   actions.js, characterStore.js
+  src/runtime/   Character, CharacterStage, CharacterCanvas, vfx/, overlays/   (React + three)
+
+apps/desktop/                 ← lightweight Electron shell
+  electron/      main.cjs (window + tray + gateway socket), preload.cjs
+  src/           main.jsx (bus ← preload), petBridge.js
+  server/        gateway.mjs   (POST /notify + WS)
+  mcp/           server.mjs    (MCP tool → gateway)
+  public/models/ Armature.glb, Poses.glb
+
+(root)                        ← the original web character configurator, untouched
 ```
 
-One ingress (`/notify`), one fan-out (WS). The **renderer never opens a socket** —
-in the desktop pet the Electron *main* process owns the single gateway
-connection and pushes events to the character through the preload bridge. This
-keeps connection logic in one place and lets the window do native things later
-(reposition, OS-notification hooks, etc.).
+`packages/*` and `apps/*` are npm workspaces.
 
-### The event envelope (`src/reactions/schema.js`)
+---
 
-Every source is normalized into one shape so the reaction logic is source-blind:
+## Pipeline
+
+```
+ source ─▶ bus.publish(event) ─▶ action catalog classifies ─▶ runtime performs ─▶ settles to idle
+ (tray, OS notif,                (events/schema +              (pose + 2D VFX,
+  gateway, MCP, dev panel)        actions/actions)             characterStore queue)
+```
+
+The **event bus** (`events/bus.js`) is the seam that makes the character
+standalone: every source publishes a normalized event, the runtime subscribes,
+and neither side knows about the other, the web app, or PocketBase.
+
+### How events reach the desktop character
+
+```
+ GitHub Action / Slack / email / MCP client
+        │  POST /notify  (MCP server forwards here too)
+        ▼
+   gateway.mjs ── WS broadcast ──▶ Electron main (one socket) ── preload IPC ──▶ renderer
+                                                                                    │ bus.publish
+                                                                                    ▼
+                                                                              character reacts
+```
+
+The **renderer never opens a socket** — the Electron *main* process owns the
+single gateway connection and pushes events through the preload bridge, where
+`apps/desktop/src/main.jsx` publishes them onto the bus. The system **tray** is a
+second native source: it can inject a test event the same way.
+
+### The event envelope (`events/schema.js`)
 
 ```jsonc
 {
@@ -41,17 +77,15 @@ Every source is normalized into one shape so the reaction logic is source-blind:
 }
 ```
 
-`normalizeEvent()` is tolerant: missing fields fall back to defaults so a
-half-configured webhook still animates the character. Only `kind` really matters,
-and unknown kinds still map to a sensible default.
+`normalizeEvent()` is tolerant: only `kind` really matters, and unknown kinds
+still map to a default action.
 
-### Reactions (`src/reactions/rules.js`)
+### Actions (`actions/actions.js`)
 
-A **Reaction = pose + 2D VFX + timing + theme**, all data so new ones are trivial
-to add as the character "evolves". `classify(event)` maps an event to a reaction
-id (most-specific rule wins; sentiment is inferred from the text when not given).
+An **Action = pose + 2D VFX + timing + theme**, all data so new ones are trivial
+to add as the character "evolves". `classify(event)` maps an event to an action.
 
-| Reaction   | Pose (Poses.glb) | VFX        | Triggered by                              |
+| Action     | Pose (Poses.glb) | VFX        | Triggered by                              |
 |------------|------------------|------------|-------------------------------------------|
 | celebrate  | King             | confetti   | task_completed, pr_approved, ci_passed    |
 | matrix     | Cool             | code-rain  | deploy_succeeded                          |
@@ -62,44 +96,32 @@ id (most-specific rule wins; sentiment is inferred from the text when not given)
 | think      | Busy             | thought    | neutral / unknown                         |
 | idle       | Idle             | —          | resting state                             |
 
-VFX are a 2D canvas overlay (`ReactionFX.jsx`) — no new 3D assets needed for the
-MVP, which keeps the existing Bloom look intact.
+`characterStore.js` plays one action at a time; bursts queue into a little
+performance, then settle back to Idle. Each action grants XP → levels (gates
+fancier VFX later).
 
-### Reaction store (`src/reactions/reactionStore.js`)
+### Package boundaries
 
-One reaction plays at a time; bursts queue so a flurry of notifications becomes a
-little performance instead of a flicker, then the character settles back to Idle.
-Each reaction grants XP → levels, which will gate fancier VFX later.
+`@companion/character-core` exposes three entry points so Node services never
+pull in three.js/React:
 
----
+- `@companion/character-core` — full runtime (React + three)
+- `@companion/character-core/events` — pure-JS schema + bus (used by the gateway)
+- `@companion/character-core/actions` — pure-JS catalog + classifier (used by MCP)
 
-## Components
-
-| Path | Role |
-|------|------|
-| `src/reactions/*` | Framework-agnostic core: schema, rules, store (shared by browser **and** Node). |
-| `src/components/CompanionAvatar.jsx` | Backend-free avatar — renders the base mesh directly and plays reaction poses. |
-| `src/components/ReactionFX.jsx` | 2D canvas particle layer (confetti, matrix, projectile, …). |
-| `src/components/NotificationCard.jsx` / `CompanionHUD.jsx` / `DevTriggerPanel.jsx` | DOM overlays: the toast, level/connection HUD, demo triggers. |
-| `src/companion/Companion.jsx` | Overlay app root (transparent canvas + overlays). |
-| `src/companion/usePetEvents.js` | Consumes events from the preload bridge. |
-| `src/companion/petBridge.js` | Click-through / interactivity bridge to Electron. |
-| `server/gateway.mjs` | HTTP `/notify` + WS broadcast. |
-| `mcp/server.mjs` | MCP server exposing `send_character_notification`. |
-| `electron/main.cjs` / `preload.cjs` | Transparent always-on-top pet window; owns the gateway socket. |
-| `.github/workflows/notify-character.yml` | Sample: CI result → reaction. |
+The runtime owns **no asset paths** and **nothing shell-specific**: model URLs
+and an `onActivity` hover callback are injected by the host, so the same
+`CharacterCanvas` runs in Electron or a plain browser tab.
 
 ---
 
 ## Running it
 
 ```bash
-npm install                 # first time (downloads Electron)
+npm install                                  # first time (installs Electron)
 
-npm run gateway             # 1) start the notification gateway  (:8787)
-npm run pet:dev             # 2) vite + the Electron desktop pet
-# …or browser-only demo:
-npm run demo                # gateway + vite; open /overlay.html and use the panel
+npm run gateway                              # 1) notification gateway (:8787)
+npm run desktop                              # 2) vite + the Electron desktop pet
 ```
 
 Fire a test reaction from anywhere:
@@ -109,17 +131,18 @@ curl -X POST localhost:8787/notify -H 'content-type: application/json' \
   -d '{"source":"github","kind":"deploy_succeeded","title":"Prod deploy ✅"}'
 ```
 
-**Desktop pet controls:** `Ctrl/Cmd+Shift+P` pin/unpin (click-through),
-`Ctrl/Cmd+Shift+H` hide/show. Hover the character or drag the HUD pill to move it.
+**Pet controls:** tray menu (show/hide, pin, send test event, quit);
+`Ctrl/Cmd+Shift+P` pin (click-through), `Ctrl/Cmd+Shift+H` hide. Hover the
+character or drag the HUD pill to move it.
 
 ### MCP wiring (GitHub / Slack / editor agents)
 
 ```jsonc
-{ "command": "node", "args": ["mcp/server.mjs"],
+{ "command": "node", "args": ["apps/desktop/mcp/server.mjs"],
   "env": { "GATEWAY_URL": "http://localhost:8787" } }
 ```
 
-Tools: `send_character_notification` (the main entry point) and `list_reactions`.
+Tools: `send_character_notification` (main entry point), `list_actions`.
 
 ---
 
@@ -127,8 +150,8 @@ Tools: `send_character_notification` (the main entry point) and `list_reactions`
 
 1. **Evolution** — XP unlocks new poses/VFX tiers; cosmetics from the configurator.
 2. **Bespoke 3D animations** — jump, wave, ride/bounce on the toast, fire the bird.
-3. **Native notification taps** — read OS notifications directly (macOS/Windows).
+3. **Native notification taps** — read OS notifications directly (macOS/Windows) as a tray-side source.
 4. **Source adapters** — first-class Slack/Gmail/Linear apps over the same `/notify`.
-5. **User-editable rules** — drag-to-map events → reactions in the UI.
-6. **Multiplayer** — companions reacting to a team's shared event stream.
+5. **Tauri shell** — swap the Electron host for a ~3MB Tauri build; `character-core` already knows nothing about the host.
+6. **User-editable rules** — drag-to-map events → actions in the UI.
 ```

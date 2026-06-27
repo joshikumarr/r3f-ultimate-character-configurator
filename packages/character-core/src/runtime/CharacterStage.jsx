@@ -1,13 +1,12 @@
 import { ContactShadows, Environment, Float } from "@react-three/drei";
-import { CompanionAvatar } from "../components/CompanionAvatar";
-import { useReactionStore } from "../reactions/reactionStore";
+import { Character } from "./Character";
+import { useCharacterStore } from "../actions/characterStore";
 
-// Lean scene for the companion: no ground plane (so it can float on a
-// transparent desktop window), soft key/fill/rim lights tinted to match the
-// configurator's look, a contact shadow for grounding, and a gentle idle bob
-// that calms down while a reaction is performing.
-export const CompanionScene = () => {
-  const playing = useReactionStore((s) => s.playing);
+// Lean scene: no ground plane (so it can float on a transparent desktop window),
+// soft key/fill/rim lights, a contact shadow for grounding, and a gentle idle
+// bob that calms down while an action is performing.
+export const CharacterStage = ({ models, onActivity }) => {
+  const playing = useCharacterStore((s) => s.playing);
 
   return (
     <>
@@ -19,7 +18,12 @@ export const CompanionScene = () => {
       <directionalLight position={[-3, 3, -5]} intensity={5} color="#3cb1ff" />
 
       <Float floatIntensity={playing ? 0.15 : 0.6} rotationIntensity={playing ? 0.05 : 0.25} speed={playing ? 1.5 : 2.5}>
-        <CompanionAvatar position-y={-0.9} />
+        <Character
+          position-y={-0.9}
+          armatureUrl={models.armatureUrl}
+          posesUrl={models.posesUrl}
+          onActivity={onActivity}
+        />
       </Float>
 
       <ContactShadows position={[0, -0.92, 0]} opacity={0.5} scale={6} blur={2.4} far={3} color="#000000" />

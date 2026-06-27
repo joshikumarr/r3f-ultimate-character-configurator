@@ -1,26 +1,28 @@
 // Electron desktop-pet shell.
 //
-// A frameless, transparent, always-on-top window that renders the companion
-// (overlay.html) so the character literally lives on your desktop and reacts on
-// top of everything. Connects to the gateway over WS exactly like the browser.
+// A frameless, transparent, always-on-top window that renders the character
+// runtime (@companion/character-core) so the character lives on your desktop and
+// reacts on top of everything. The MAIN process owns the single gateway socket
+// and the system tray; it forwards events to the renderer through the preload
+// bridge, where they're published onto the character bus.
 //
-//   npm run gateway          # start the notification gateway
-//   npm run pet:dev          # vite dev server + this window
-//   npm run pet              # build, then this window (production)
+//   npm run -w @companion/desktop gateway   # the notification gateway
+//   npm run -w @companion/desktop dev       # vite + this window (development)
+//   npm run -w @companion/desktop pet       # build, then this window (production)
 //
-// Global shortcut  Ctrl/Cmd+Shift+P  toggles "click-through" mode: when pinned,
-// mouse events pass through the transparent areas to the apps underneath.
+// Global shortcuts: Ctrl/Cmd+Shift+P pin (click-through), Ctrl/Cmd+Shift+H hide.
 
-const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require("electron");
+const { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } = require("electron");
 const path = require("node:path");
 const WebSocket = require("ws");
 
-const DEV_URL = process.env.VITE_DEV_SERVER_URL; // set by npm run pet:dev
+const DEV_URL = process.env.VITE_DEV_SERVER_URL; // set by `npm run dev`
 const GATEWAY_WS = process.env.GATEWAY_WS || "ws://localhost:8787";
 const WIDTH = 380;
 const HEIGHT = 520;
 
 let win;
+let tray;
 let clickThrough = false;
 
 function createWindow() {
@@ -48,13 +50,46 @@ function createWindow() {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   // In pet mode we hide the dev panel for a clean character; events come from
-  // the gateway. Drop `nopanel` if you want the in-window demo buttons.
+  // the gateway / tray. Drop `nopanel` if you want the in-window demo buttons.
   const query = "?nopanel";
   if (DEV_URL) {
-    win.loadURL(`${DEV_URL}/overlay.html${query}`);
+    win.loadURL(`${DEV_URL}/index.html${query}`);
   } else {
-    win.loadFile(path.join(__dirname, "..", "dist", "overlay.html"), { search: query.slice(1) });
+    win.loadFile(path.join(__dirname, "..", "dist", "index.html"), { search: query.slice(1) });
   }
+}
+
+// System tray — the "task/tray" surface. Lets you show/hide the pet, toggle
+// click-through, fire a native test event, and quit without any window chrome.
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, "tray.png"));
+  tray = new Tray(icon);
+  tray.setToolTip("Character Companion");
+
+  const menu = Menu.buildFromTemplate([
+    { label: "Show / Hide", click: () => (win?.isVisible() ? win.hide() : win?.show()) },
+    {
+      label: "Pin (click-through)",
+      type: "checkbox",
+      checked: clickThrough,
+      click: (item) => setClickThrough(item.checked),
+    },
+    { type: "separator" },
+    {
+      label: "Send test event 🎉",
+      click: () =>
+        toRenderer("companion-event", {
+          source: "system",
+          kind: "task_completed",
+          title: "Tray test event",
+          body: "Fired from the system tray",
+        }),
+    },
+    { type: "separator" },
+    { label: "Quit", role: "quit" },
+  ]);
+  tray.setContextMenu(menu);
+  tray.on("click", () => (win?.isVisible() ? win.hide() : win?.show()));
 }
 
 function setClickThrough(on) {
@@ -113,6 +148,7 @@ function connectGateway() {
 
 app.whenReady().then(() => {
   createWindow();
+  createTray();
 
   // Reflect the current connection state once the page is ready (it may have
   // loaded after the socket already opened).

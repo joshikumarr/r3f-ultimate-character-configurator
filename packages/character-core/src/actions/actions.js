@@ -1,10 +1,9 @@
-// Declarative reaction system.
+// Declarative action catalog.
 //
-// A Reaction = a base pose (one of the existing Poses.glb clips) + a 2D VFX
-// overlay + timing + theming. Everything is data so new reactions are trivial to
-// add as the character "evolves". The `classify()` function turns a normalized
-// event into a reaction id; it is intentionally simple and ordered so user
-// overrides can slot in later.
+// An Action = a base pose (one of the Poses.glb clips) + a 2D VFX overlay +
+// timing + theming. Everything is data so new actions are trivial to add as the
+// character "evolves". `classify()` turns a normalized event into an action id;
+// it is intentionally simple and ordered so user overrides can slot in later.
 
 // Pose clips that actually exist in /models/Poses.glb:
 //   Idle, Chill, Cool, Dram, King, Ninja, Busy, Punch
@@ -19,9 +18,9 @@ export const POSES = {
   Punch: "Punch",
 };
 
-// VFX ids are interpreted by the DOM overlay (ReactionFX.jsx). Keeping them as
-// plain strings decouples the rules from the rendering.
-export const REACTIONS = {
+// VFX ids are interpreted by the runtime overlay (ActionFX.jsx). Keeping them as
+// plain strings decouples the action catalog from the rendering.
+export const ACTIONS = {
   idle: {
     id: "idle",
     label: "Idle",
@@ -103,7 +102,7 @@ export const REACTIONS = {
   },
 };
 
-export const DEFAULT_REACTION_ID = "think";
+export const DEFAULT_ACTION_ID = "think";
 
 // Words that hint an email/message is a complaint vs. praise, used only when the
 // caller didn't give us an explicit sentiment.
@@ -154,15 +153,15 @@ export function classify(event) {
       if (sentiment === "positive") return "celebrate";
       if (sentiment === "negative") return "facepalm";
       if (sentiment === "urgent") return "alert";
-      return DEFAULT_REACTION_ID;
+      return DEFAULT_ACTION_ID;
   }
 }
 
-/** Resolve a normalized event to a full reaction object (with the live event attached). */
-export function reactionFor(event) {
+/** Resolve a normalized event to a full action object (with the live event attached). */
+export function actionFor(event) {
   const id = classify(event);
-  const reaction = REACTIONS[id] || REACTIONS[DEFAULT_REACTION_ID];
-  return { ...reaction, event, sentiment: inferSentiment(event) };
+  const action = ACTIONS[id] || ACTIONS[DEFAULT_ACTION_ID];
+  return { ...action, event, sentiment: inferSentiment(event) };
 }
 
 // XP needed to reach the *next* level. Simple curve; level gates nicer VFX later.

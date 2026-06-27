@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useReactionStore } from "../reactions/reactionStore";
+import { useCharacterStore } from "../../actions/characterStore";
 
-// Sample events covering every hero reaction — lets you demo the whole thing
-// with zero backend. Each fires through the exact same `trigger()` path the
-// gateway/MCP use, so what you see here is what a real notification produces.
+// Sample events covering every hero action — lets you demo the whole thing with
+// zero backend. Each is *published to the bus*, the exact same pipeline the
+// gateway/MCP feed, so what you see here is what a real notification produces.
 const SAMPLES = [
   { emoji: "🎉", label: "Task done", event: { source: "manual", kind: "task_completed", title: "Task completed", body: "Shipped the onboarding flow" } },
   { emoji: "🟢", label: "Deploy OK", event: { source: "github", kind: "deploy_succeeded", title: "Deploy to prod succeeded", actor: "ci-bot" } },
@@ -13,10 +13,13 @@ const SAMPLES = [
   { emoji: "⚡", label: "Mention", event: { source: "slack", kind: "mention", sentiment: "urgent", actor: "alex", title: "@you can you review this?" } },
 ];
 
-export const DevTriggerPanel = () => {
-  const trigger = useReactionStore((s) => s.trigger);
-  const reset = useReactionStore((s) => s.reset);
+export const DevTriggerPanel = ({ bus }) => {
+  const reset = useCharacterStore((s) => s.reset);
   const [open, setOpen] = useState(true);
+
+  // Publish to the bus when wired; fall back to the store directly (e.g. tests).
+  const fire = (event) =>
+    bus ? bus.publish(event) : useCharacterStore.getState().trigger(event);
 
   return (
     <div
@@ -50,7 +53,7 @@ export const DevTriggerPanel = () => {
           }}
         >
           {SAMPLES.map((s) => (
-            <button key={s.label} onClick={() => trigger(s.event)} style={btnStyle}>
+            <button key={s.label} onClick={() => fire(s.event)} style={btnStyle}>
               <span style={{ fontSize: 16 }}>{s.emoji}</span> {s.label}
             </button>
           ))}

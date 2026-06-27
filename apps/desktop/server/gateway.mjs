@@ -11,7 +11,7 @@
 
 import http from "node:http";
 import { WebSocketServer } from "ws";
-import { normalizeEvent } from "../src/reactions/schema.js";
+import { normalizeEvent } from "@companion/character-core/events";
 
 const PORT = Number(process.env.GATEWAY_PORT || 8787);
 const TOKEN = process.env.GATEWAY_TOKEN || ""; // optional shared secret

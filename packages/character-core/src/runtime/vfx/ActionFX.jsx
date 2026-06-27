@@ -1,22 +1,22 @@
 import { useEffect, useRef } from "react";
-import { useReactionStore } from "../reactions/reactionStore";
+import { useCharacterStore } from "../../actions/characterStore";
 
-// A full-viewport 2D canvas that paints the VFX layer for the active reaction.
-// Pointer-events:none so it never blocks the character or UI. Each reaction's
+// A full-viewport 2D canvas that paints the VFX layer for the active action.
+// Pointer-events:none so it never blocks the character or UI. Each action's
 // `vfx` id spawns a short particle burst that fades on its own; the canvas idles
-// (no RAF cost) when nothing is playing.
+// when nothing is playing.
 
 const COLORS = ["#ffd34e", "#ff7ec8", "#27ff7c", "#6aa0ff", "#ff4d4d", "#ffffff"];
 const MATRIX_GLYPHS = "0101ｱｲｳｴｵｶｷｸｹｺ<>/{}=$#";
 
-export const ReactionFX = () => {
+export const ActionFX = () => {
   const canvasRef = useRef(null);
   const particlesRef = useRef([]);
   const rafRef = useRef(0);
   const lastRef = useRef(0);
-  const current = useReactionStore((s) => s.current);
+  const current = useCharacterStore((s) => s.current);
 
-  // Spawn particles when a new reaction with a vfx becomes active.
+  // Spawn particles when a new action with a vfx becomes active.
   useEffect(() => {
     if (!current?.vfx) return;
     const w = window.innerWidth;

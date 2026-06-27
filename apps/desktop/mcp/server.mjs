@@ -6,15 +6,14 @@
 // react to the outside world instead of only the local dev panel.
 //
 // Transport: stdio. Configure in an MCP client as:
-//   { "command": "node", "args": ["mcp/server.mjs"],
+//   { "command": "node", "args": ["apps/desktop/mcp/server.mjs"],
 //     "env": { "GATEWAY_URL": "http://localhost:8787" } }
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { EVENT_KINDS, SENTIMENTS, SOURCES } from "../src/reactions/schema.js";
-import { REACTIONS, reactionFor } from "../src/reactions/rules.js";
-import { normalizeEvent } from "../src/reactions/schema.js";
+import { EVENT_KINDS, SENTIMENTS, SOURCES, normalizeEvent } from "@companion/character-core/events";
+import { ACTIONS, actionFor } from "@companion/character-core/actions";
 
 const GATEWAY_URL = (process.env.GATEWAY_URL || "http://localhost:8787").replace(/\/$/, "");
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || "";
@@ -41,14 +40,14 @@ server.registerTool(
   },
   async (args) => {
     const event = normalizeEvent({ ...args, source: args.source || "mcp" });
-    const reaction = reactionFor(event);
+    const action = actionFor(event);
     const result = await post(event);
     return {
       content: [
         {
           type: "text",
           text: result.ok
-            ? `🎭 "${event.title}" → ${reaction.label} ${reaction.emoji || ""} (pose: ${reaction.pose}). Delivered to ${result.clients ?? "?"} companion(s).`
+            ? `🎭 "${event.title}" → ${action.label} ${action.emoji || ""} (pose: ${action.pose}). Delivered to ${result.clients ?? "?"} companion(s).`
             : `⚠️ Could not reach the gateway at ${GATEWAY_URL}: ${result.error}. Is it running? (npm run gateway)`,
         },
       ],
@@ -58,10 +57,10 @@ server.registerTool(
 );
 
 server.registerTool(
-  "list_reactions",
+  "list_actions",
   {
-    title: "List the character's reactions",
-    description: "Return the catalog of reactions and the event kinds that trigger them.",
+    title: "List the character's actions",
+    description: "Return the catalog of actions and the event kinds that trigger them.",
     inputSchema: {},
   },
   async () => ({
@@ -71,7 +70,7 @@ server.registerTool(
         text: JSON.stringify(
           {
             kinds: EVENT_KINDS,
-            reactions: Object.values(REACTIONS).map((r) => ({
+            actions: Object.values(ACTIONS).map((r) => ({
               id: r.id,
               label: r.label,
               pose: r.pose,

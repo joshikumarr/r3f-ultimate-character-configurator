@@ -1,14 +1,15 @@
-import { interactive } from "../companion/petBridge";
-import { useReactionStore } from "../reactions/reactionStore";
+import { useCharacterStore } from "../../actions/characterStore";
 
 const DOT = { offline: "#ff5a5a", connecting: "#ffcf4a", online: "#3cff9a" };
 
-// Minimal always-on overlay: connection status + level/XP progress. Kept tiny so
-// it works inside the small desktop-pet window as well as full screen.
-export const CompanionHUD = () => {
-  const level = useReactionStore((s) => s.level);
-  const connection = useReactionStore((s) => s.connection);
-  const progress = useReactionStore((s) => s.xpProgress());
+// Minimal always-on overlay: connection status + level/XP progress. Presentational
+// and shell-agnostic — the host may pass `interactive` handlers (e.g. the desktop
+// pet's hover→click-through toggles) so the pill can double as a drag handle; in
+// a browser tab it's an empty object and the pill is inert.
+export const HUD = ({ interactive = {} }) => {
+  const level = useCharacterStore((s) => s.level);
+  const connection = useCharacterStore((s) => s.connection);
+  const progress = useCharacterStore((s) => s.xpProgress());
 
   return (
     <div
@@ -17,7 +18,7 @@ export const CompanionHUD = () => {
         position: "fixed",
         top: 14,
         left: 14,
-        WebkitAppRegion: "drag", // drag handle to move the desktop pet
+        WebkitAppRegion: "drag", // CSS-only; lets the desktop pet be dragged, ignored in browsers
         cursor: "grab",
         display: "flex",
         alignItems: "center",
