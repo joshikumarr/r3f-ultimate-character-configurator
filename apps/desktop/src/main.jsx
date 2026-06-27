@@ -1,5 +1,5 @@
 import { CharacterCanvas, createCharacterBus } from "@companion/character-core";
-import { StrictMode, useCallback, useEffect, useState } from "react";
+import { StrictMode, useCallback, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initPet, interactive, setInteractive } from "./petBridge";
 
@@ -9,17 +9,32 @@ import { initPet, interactive, setInteractive } from "./petBridge";
 // connection (see electron/main.cjs) and pushes events here.
 const bus = createCharacterBus();
 
-// Models ship with the desktop app (public/models). character-core stays
-// asset-path-agnostic; the host points it at the files.
-const MODELS = {
-  armatureUrl: "/models/Armature.glb",
-  posesUrl: "/models/Poses.glb",
-};
+// Base models ship with the desktop app (public/models). character-core stays
+// asset-path-agnostic; the host points it at the files. A character exported from
+// the web configurator overrides the base body via `characterUrl`.
+const ARMATURE_URL = "/models/Armature.glb";
+const POSES_URL = "/models/Poses.glb";
+const CHARACTER_URL = "/models/character.glb"; // persisted "active character", if any
 
 function App() {
   const [connection, setConnection] = useState("offline");
   const [library, setLibrary] = useState([]);
+  const [characterUrl, setCharacterUrl] = useState(null);
   const params = new URLSearchParams(location.search);
+
+  const models = useMemo(
+    () => ({ armatureUrl: ARMATURE_URL, posesUrl: POSES_URL, characterUrl }),
+    [characterUrl]
+  );
+
+  // Swap to a character exported from the web configurator. Live via a blob URL;
+  // the file is rendered immediately (uncompressed GLB, no decoder needed).
+  const onLoadCharacter = useCallback((file) => {
+    setCharacterUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }, []);
 
   // Pose library manifest (written by `npm run add-pose` / Save to library).
   const loadLibrary = useCallback(async () => {
@@ -36,6 +51,11 @@ function App() {
   useEffect(() => {
     initPet();
     loadLibrary();
+
+    // Use a persisted exported character if one was saved as the active body.
+    fetch(CHARACTER_URL, { method: "HEAD" })
+      .then((res) => res.ok && setCharacterUrl(CHARACTER_URL))
+      .catch(() => {});
 
     const offEvent = window.pet?.onEvent((event) => bus.publish(event));
     const offStatus = window.pet?.onGatewayStatus((status) => setConnection(status));
@@ -57,12 +77,13 @@ function App() {
   return (
     <CharacterCanvas
       bus={bus}
-      models={MODELS}
+      models={models}
       connection={connection}
       showPanel={!params.has("nopanel")}
       showStudio={!params.has("nopanel")}
       library={library}
       onSavePose={onSavePose}
+      onLoadCharacter={onLoadCharacter}
       onActivity={setInteractive} // hover character → window solid
       hudInteractive={interactive} // HUD doubles as a drag handle in the pet
     />

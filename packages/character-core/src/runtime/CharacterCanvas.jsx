@@ -25,6 +25,7 @@ import { ActionFX } from "./vfx/ActionFX";
 //   showStudio    show the Pose Studio (import/preview animations) (default false)
 //   library       [{ name, url }] converted poses for the Studio library
 //   onSavePose    optional (file, name) => Promise to persist an imported pose
+//   onLoadCharacter optional (file) => void to swap in an exported character GLB
 export function CharacterCanvas({
   bus,
   models,
@@ -36,6 +37,7 @@ export function CharacterCanvas({
   showStudio = false,
   library = [],
   onSavePose,
+  onLoadCharacter,
 }) {
   // Bus → store. The single place events become performed actions.
   useEffect(() => {
@@ -63,7 +65,9 @@ export function CharacterCanvas({
       <ActionFX />
       <NotificationCard />
       {showHUD && <HUD interactive={hudInteractive} />}
-      {showStudio && <PoseStudio library={library} onSavePose={onSavePose} />}
+      {showStudio && (
+        <PoseStudio library={library} onSavePose={onSavePose} onLoadCharacter={onLoadCharacter} />
+      )}
       {showPanel && <DevTriggerPanel bus={bus} />}
     </>
   );

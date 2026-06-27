@@ -11,10 +11,12 @@ import { usePreviewStore } from "../previewStore";
 // the CLI converter to persist it.
 //
 // Props:
-//   library     [{ name, url }]  converted poses from the manifest
-//   onSavePose  optional (file, name) => Promise  host-provided persistence (IPC)
-export const PoseStudio = ({ library = [], onSavePose }) => {
+//   library         [{ name, url }]  converted poses from the manifest
+//   onSavePose      optional (file, name) => Promise  persist a pose (IPC)
+//   onLoadCharacter optional (file) => void  swap to an exported character GLB
+export const PoseStudio = ({ library = [], onSavePose, onLoadCharacter }) => {
   const inputRef = useRef(null);
+  const charInputRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [lastFile, setLastFile] = useState(null);
@@ -76,6 +78,21 @@ export const PoseStudio = ({ library = [], onSavePose }) => {
 
       {open && (
         <div style={panel}>
+          {onLoadCharacter && (
+            <div style={{ ...row, marginTop: 0, marginBottom: 10, justifyContent: "space-between" }}>
+              <span style={{ opacity: 0.7 }}>Character</span>
+              <button onClick={() => charInputRef.current?.click()} style={miniBtn}>
+                Load .glb…
+              </button>
+              <input
+                ref={charInputRef}
+                type="file"
+                accept=".glb,.gltf"
+                style={{ display: "none" }}
+                onChange={(e) => e.target.files?.[0] && onLoadCharacter(e.target.files[0])}
+              />
+            </div>
+          )}
           <div
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => {

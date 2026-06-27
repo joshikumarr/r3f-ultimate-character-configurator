@@ -51,6 +51,10 @@ export const useConfiguratorStore = create((set, get) => ({
   customization: {},
   download: () => {},
   setDownload: (download) => set({ download }),
+  // Pet-ready export: a complete, uncompressed character GLB the desktop
+  // companion can load directly (no Draco decoder required).
+  exportForPet: () => {},
+  setExportForPet: (exportForPet) => set({ exportForPet }),
   screenshot: () => {},
   setScreenshot: (screenshot) => set({ screenshot }),
   updateColor: (color) => {

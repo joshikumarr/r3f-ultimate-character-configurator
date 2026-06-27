@@ -16,6 +16,7 @@ export * from "./actions/actions";
 export { CharacterCanvas } from "./runtime/CharacterCanvas";
 export { CharacterStage } from "./runtime/CharacterStage";
 export { Character } from "./runtime/Character";
+export { CharacterGLB } from "./runtime/CharacterGLB";
 export { ActionFX } from "./runtime/vfx/ActionFX";
 export { HUD } from "./runtime/overlays/HUD";
 export { NotificationCard } from "./runtime/overlays/NotificationCard";

@@ -135,6 +135,25 @@ curl -X POST localhost:8787/notify -H 'content-type: application/json' \
 `Ctrl/Cmd+Shift+P` pin (click-through), `Ctrl/Cmd+Shift+H` hide. Hover the
 character or drag the HUD pill to move it.
 
+### Author on the web, render on the pet
+
+The web configurator is the character authoring tool; the pet renders whatever you
+export.
+
+1. Customize the avatar in the web app, then click **Export for Pet** — it writes
+   a complete, **uncompressed** character GLB (body + equipped assets on the
+   `mixamorig:` skeleton; no Draco, so it loads with no decoder). This is separate
+   from **Download**, which is Draco-compressed.
+2. In the pet's **Pose Studio → Character → Load .glb…**, pick that file. The pet
+   swaps to it live (blob URL) and `CharacterGLB` binds the same `Poses.glb`
+   actions to it — the export preserves the skeleton, so every reaction still
+   works.
+3. To make it the default character across restarts, save the exported file as
+   `apps/desktop/public/models/character.glb`; the renderer loads it on startup.
+
+`CharacterStage` picks `CharacterGLB` (exported) vs `Character` (built-in base
+mesh) from `models.characterUrl`; both share `useCharacterAnimation`.
+
 ### Pose Studio — import & preview animations
 
 The desktop app has a **Pose Studio** panel (top-right) for adding new actions
