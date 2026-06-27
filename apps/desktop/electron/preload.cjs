@@ -26,4 +26,9 @@ contextBridge.exposeInMainWorld("pet", {
     ipcRenderer.on("gateway-status", handler);
     return () => ipcRenderer.removeListener("gateway-status", handler);
   },
+
+  // --- pose library ---
+  // Convert a dropped FBX/GLB (by its filesystem path) into the pose library.
+  // Resolves to { name, file, url, count }.
+  convertPose: ({ path, name }) => ipcRenderer.invoke("convert-pose", { path, name }),
 });

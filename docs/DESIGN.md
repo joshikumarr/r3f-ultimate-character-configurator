@@ -135,6 +135,27 @@ curl -X POST localhost:8787/notify -H 'content-type: application/json' \
 `Ctrl/Cmd+Shift+P` pin (click-through), `Ctrl/Cmd+Shift+H` hide. Hover the
 character or drag the HUD pill to move it.
 
+### Pose Studio — import & preview animations
+
+The desktop app has a **Pose Studio** panel (top-right) for adding new actions
+from Mixamo or anywhere:
+
+- **Live preview (no conversion):** drop an `.fbx` / `.glb` and it's parsed
+  in-renderer (`runtime/loadClips.js` via `FBXLoader`/`GLTFLoader`) and played on
+  the character immediately, reusing the existing animation mixer. Works because
+  every Mixamo rig shares the `mixamorig:` bone names the skeleton already uses.
+- **Persist to the library (CLI conversion):**
+  ```bash
+  npm run add-pose -- ~/Downloads/Wave.fbx Wave   # fbx2gltf + gltf-transform
+  ```
+  Converts FBX→GLB, renames the clip, drops it in
+  `apps/desktop/public/models/poses/`, and updates `poses.json`. The same
+  converter backs Pose Studio's **Save to library** button (renderer → preload →
+  main → `scripts/convert-pose.mjs`). Library poses appear as one-click previews.
+
+To turn a library pose into an event-driven action, add it to `POSES` in
+`actions/actions.js` and reference it from an action.
+
 ### MCP wiring (GitHub / Slack / editor agents)
 
 ```jsonc

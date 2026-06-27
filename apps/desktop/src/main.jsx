@@ -1,5 +1,5 @@
 import { CharacterCanvas, createCharacterBus } from "@companion/character-core";
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initPet, interactive, setInteractive } from "./petBridge";
 
@@ -18,20 +18,41 @@ const MODELS = {
 
 function App() {
   const [connection, setConnection] = useState("offline");
+  const [library, setLibrary] = useState([]);
   const params = new URLSearchParams(location.search);
 
-  useEffect(() => {
-    // Pin (click-through) on spawn so the pet doesn't grab the cursor.
-    initPet();
+  // Pose library manifest (written by `npm run add-pose` / Save to library).
+  const loadLibrary = useCallback(async () => {
+    try {
+      const res = await fetch("/models/poses/poses.json", { cache: "no-store" });
+      if (!res.ok) return;
+      const list = await res.json();
+      setLibrary(list.map((p) => ({ name: p.name, url: `/models/poses/${p.file}` })));
+    } catch {
+      /* no library yet — fine */
+    }
+  }, []);
 
-    // Preload → bus. Every notification the main process receives lands here.
+  useEffect(() => {
+    initPet();
+    loadLibrary();
+
     const offEvent = window.pet?.onEvent((event) => bus.publish(event));
     const offStatus = window.pet?.onGatewayStatus((status) => setConnection(status));
     return () => {
       offEvent?.();
       offStatus?.();
     };
-  }, []);
+  }, [loadLibrary]);
+
+  // Persist a previewed FBX/GLB into the library via the main-process converter.
+  const onSavePose = window.pet?.convertPose
+    ? async (file, name) => {
+        if (!file?.path) throw new Error("File path unavailable (drag the file into the window).");
+        await window.pet.convertPose({ path: file.path, name });
+        await loadLibrary();
+      }
+    : undefined;
 
   return (
     <CharacterCanvas
@@ -39,6 +60,9 @@ function App() {
       models={MODELS}
       connection={connection}
       showPanel={!params.has("nopanel")}
+      showStudio={!params.has("nopanel")}
+      library={library}
+      onSavePose={onSavePose}
       onActivity={setInteractive} // hover character → window solid
       hudInteractive={interactive} // HUD doubles as a drag handle in the pet
     />

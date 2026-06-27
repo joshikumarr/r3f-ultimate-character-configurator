@@ -20,4 +20,7 @@ export { ActionFX } from "./runtime/vfx/ActionFX";
 export { HUD } from "./runtime/overlays/HUD";
 export { NotificationCard } from "./runtime/overlays/NotificationCard";
 export { DevTriggerPanel } from "./runtime/overlays/DevTriggerPanel";
+export { PoseStudio } from "./runtime/overlays/PoseStudio";
 export { useCharacterStore, triggerAction } from "./actions/characterStore";
+export { usePreviewStore } from "./runtime/previewStore";
+export { parseAnimationFile, parseAnimationBuffer, fetchAnimationClips } from "./runtime/loadClips";

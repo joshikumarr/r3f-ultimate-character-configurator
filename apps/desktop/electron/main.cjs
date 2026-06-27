@@ -14,6 +14,7 @@
 
 const { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } = require("electron");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 const WebSocket = require("ws");
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL; // set by `npm run dev`
@@ -163,6 +164,13 @@ app.whenReady().then(() => {
 
   // Renderer can ask to (un)pin itself, e.g. when the pointer enters a button.
   ipcMain.on("set-clickthrough", (_e, on) => setClickThrough(!!on));
+
+  // Pose Studio "Save to library": convert a dropped FBX/GLB into the pose
+  // library. The convert module is ESM, so import it dynamically here in CJS.
+  ipcMain.handle("convert-pose", async (_e, { path: srcPath, name }) => {
+    const mod = await import(pathToFileURL(path.join(__dirname, "..", "scripts", "convert-pose.mjs")).href);
+    return mod.convertPose(srcPath, name);
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

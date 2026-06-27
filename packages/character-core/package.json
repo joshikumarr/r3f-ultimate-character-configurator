@@ -14,12 +14,14 @@
     "@react-three/fiber": ">=8",
     "react": ">=18",
     "three": ">=0.160",
+    "three-stdlib": ">=2.3",
     "zustand": ">=4"
   },
   "peerDependenciesMeta": {
     "@react-three/drei": { "optional": true },
     "@react-three/fiber": { "optional": true },
     "react": { "optional": true },
-    "three": { "optional": true }
+    "three": { "optional": true },
+    "three-stdlib": { "optional": true }
   }
 }

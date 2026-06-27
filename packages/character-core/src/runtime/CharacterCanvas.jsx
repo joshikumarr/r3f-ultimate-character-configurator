@@ -5,6 +5,7 @@ import { CharacterStage } from "./CharacterStage";
 import { HUD } from "./overlays/HUD";
 import { NotificationCard } from "./overlays/NotificationCard";
 import { DevTriggerPanel } from "./overlays/DevTriggerPanel";
+import { PoseStudio } from "./overlays/PoseStudio";
 import { ActionFX } from "./vfx/ActionFX";
 
 // The mountable character runtime. Give it a bus and the model URLs and it
@@ -21,6 +22,9 @@ import { ActionFX } from "./vfx/ActionFX";
 //   onActivity    (active:boolean) called on character hover (host uses this for
 //                 e.g. desktop click-through); also fed to the HUD as a handle
 //   hudInteractive optional handlers spread onto the HUD (drag/hover region)
+//   showStudio    show the Pose Studio (import/preview animations) (default false)
+//   library       [{ name, url }] converted poses for the Studio library
+//   onSavePose    optional (file, name) => Promise to persist an imported pose
 export function CharacterCanvas({
   bus,
   models,
@@ -29,6 +33,9 @@ export function CharacterCanvas({
   showPanel = false,
   onActivity,
   hudInteractive,
+  showStudio = false,
+  library = [],
+  onSavePose,
 }) {
   // Bus → store. The single place events become performed actions.
   useEffect(() => {
@@ -56,6 +63,7 @@ export function CharacterCanvas({
       <ActionFX />
       <NotificationCard />
       {showHUD && <HUD interactive={hudInteractive} />}
+      {showStudio && <PoseStudio library={library} onSavePose={onSavePose} />}
       {showPanel && <DevTriggerPanel bus={bus} />}
     </>
   );
